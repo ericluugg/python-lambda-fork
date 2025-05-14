@@ -100,6 +100,34 @@ def cleanup_old_versions(
                 except botocore.exceptions.ClientError as e:
                     print(f"Skipping Version {version_number}: {e}")
 
+def deploy_image(
+    src,
+    config_file="config.yaml",
+    profile_name=None,
+    preserve_vpc=False,
+):
+    """Deploys a new function to AWS Lambda.
+
+    :param str src:
+        The path to your Lambda ready project (folder must contain a valid
+        config.yaml and handler module (e.g.: service.py).
+    :param str local_package:
+        The path to a local package with should be included in the deploy as
+        well (and/or is not available on PyPi)
+    """
+    # Load and parse the config file.
+    path_to_config_file = os.path.join(src, config_file)
+    cfg = read_cfg(path_to_config_file, profile_name)
+    existing_config = get_function_config(cfg)
+
+    update_function(
+        cfg=cfg, 
+        path_to_zip_file=None,
+        existing_cfg=existing_config, 
+        preserve_vpc=preserve_vpc, 
+        use_image=True
+    )
+
 
 def deploy(
     src,
@@ -658,11 +686,11 @@ def update_function(
     use_s3=False,
     s3_file=None,
     preserve_vpc=False,
+    use_image=False
 ):
     """Updates the code of an existing Lambda function"""
 
     print("Updating your Lambda function")
-    byte_stream = read(path_to_zip_file, binary_file=True)
     profile_name = cfg.get("profile")
     aws_access_key_id = cfg.get("aws_access_key_id")
     aws_secret_access_key = cfg.get("aws_secret_access_key")
@@ -697,10 +725,19 @@ def update_function(
             S3Key="{}".format(s3_file),
             Publish=True,
         )
+    elif use_image:
+        docker_image_uri = cfg.get("docker_image_uri")
+        if not docker_image_uri:
+            raise ValueError("Docker image URI must be provided in cfg under 'docker_image_uri'")
+        client.update_function_code(
+            FunctionName=cfg.get("function_name"),
+            ImageUri=docker_image_uri,
+            Publish=True,
+        )
     else:
         client.update_function_code(
             FunctionName=cfg.get("function_name"),
-            ZipFile=byte_stream,
+            ZipFile=read(path_to_zip_file, binary_file=True),
             Publish=True,
         )
 
@@ -717,6 +754,9 @@ def update_function(
         "Timeout": cfg.get("timeout", 15),
         "MemorySize": cfg.get("memory_size", 512),
     }
+    if use_image:
+        del kwargs["Runtime"]
+        del kwargs["Handler"]
 
     if preserve_vpc:
         kwargs["VpcConfig"] = existing_cfg.get("Configuration", {}).get(

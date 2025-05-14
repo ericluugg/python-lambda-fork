@@ -1,11 +1,12 @@
 # flake8: noqa
 __author__ = "Nick Ficano"
 __email__ = "nficano@gmail.com"
-__version__ = "11.8.0"
+__version__ = "11.9.0"
 
 from .aws_lambda import (
     deploy,
     deploy_s3,
+    deploy_image,
     invoke,
     init,
     build,

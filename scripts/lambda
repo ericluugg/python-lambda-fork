@@ -123,6 +123,27 @@ def deploy(requirements, local_package, config_file, profile, preserve_vpc):
         preserve_vpc=preserve_vpc,
     )
 
+@click.command(help="Deploy docker image to lambda.")
+@click.option(
+    "--config-file", default="config.yaml", help="Alternate config file.",
+)
+@click.option(
+    "--profile", help="AWS profile to use.",
+)
+@click.option(
+    "--preserve-vpc",
+    default=False,
+    is_flag=True,
+    help="Preserve VPC configuration on existing functions",
+)
+def deploy_image(config_file, profile, preserve_vpc):
+    aws_lambda.deploy_image(
+        CURRENT_DIR,
+        config_file=config_file,
+        profile_name=profile,
+        preserve_vpc=preserve_vpc,
+    )
+
 
 @click.command(help="Upload your lambda to S3.")
 @click.option(
@@ -206,6 +227,7 @@ if __name__ == "__main__":
     cli.add_command(init)
     cli.add_command(invoke)
     cli.add_command(deploy)
+    cli.add_command(deploy_image)
     cli.add_command(upload)
     cli.add_command(deploy_s3)
     cli.add_command(build)

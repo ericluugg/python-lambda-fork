@@ -9,9 +9,9 @@ from setuptools import find_packages
 from setuptools import setup
 
 REQUIREMENTS = [
-    "boto3>=1.4.4",
-    "click>=6.6",
-    "PyYAML==5.1",
+    "boto3>=1.35.0",
+    "click>=8.2.0",
+    "PyYAML<=5.1.1",
 ]
 PACKAGE_DATA = {
     "aws_lambda": ["project_templates/*"],
@@ -59,7 +59,7 @@ class UploadCommand(Command):
 
 setup(
     name="python-lambda",
-    version="11.8.0",
+    version="11.9.0",
     author="Nick Ficano",
     author_email="nficano@gmail.com",
     packages=find_packages(),
@@ -78,6 +78,8 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     description="The bare minimum for a Python app running on Amazon Lambda.",
     include_package_data=True,
