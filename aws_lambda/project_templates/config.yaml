@@ -37,3 +37,5 @@ environment_variables:
 # Build options
 build:
   source_directories: lib # a comma delimited list of directories in your project root that contains source to package.
+
+# docker_image_uri: 000123456789.dkr.ecr.us-east-0.amazonaws.com/testing/ecr-repo/test:v1.0.0
