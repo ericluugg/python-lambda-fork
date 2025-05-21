@@ -10,6 +10,9 @@ from .aws_lambda import (
     invoke,
     init,
     build,
+    build_image,
+    tag_image,
+    push_image,
     upload,
     cleanup_old_versions,
 )
