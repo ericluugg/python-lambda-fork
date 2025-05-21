@@ -32,7 +32,7 @@ parts.
 
 # Requirements
 
-* Python 2.7, >= 3.6 (At the time of writing this, these are the Python runtimes supported by AWS Lambda).
+* Python 2.7, >= 3.13 (At the time of writing this, these are the Python runtimes supported by AWS Lambda).
 * Pip (\~8.1.1)
 * Virtualenv (\~15.0.0)
 * Virtualenvwrapper (\~4.7.1)
@@ -212,6 +212,67 @@ execute ``lambda upload`` to initiate the transfer.
 You can also choose to use S3 as your source for Lambda deployments.  This can
 be done by issuing ``lambda deploy-s3`` with the same variables/AWS permissions
 you'd set for executing the ``upload`` command.
+
+### Building Docker Images for Lambda
+`lambda build-image`
+
+You will need to provide your own Dockerfile compatible with Python Lambda for builds, and also Docker of course.
+For builds build variables can be provided in the nested dictionary like so.
+Do not use shorthand flages (like -t instead of --tag).
+For flags that normally don't take in a value please provide a boolean.
+Use quotes around the variable names and values for best results.
+`--provenance=false` is automatically provided in the build commmand, no need to add it in yaml.
+If you wish to build and immediately push to ECR you can add `"--push": "true"` and provide the full ECR URI in the `--tag`
+```yaml
+image_build_variables:
+  "--tag": "my_lambda:latest"
+  "--platform": linux/amd64
+  "--no-cache": "false"
+  "build_path": "."
+```
+
+### Tagging Images for Lambda
+`lambda tag-image`
+
+For images to be used in AWS Lambda they will need to be tagged with the ECR name and port.
+
+For tagging you'll need to add these folllowing variables to your yaml.
+```yaml
+aws_account_id: 000123456789
+ecr_repository: trainer/training-things/test-repo
+```
+These will be used to build the full ECR URI. The tag will be taken from `"--tag"` variable if `--lambda-image-tag` is not provided in the function call.
+The local image will be taken from `"--tag"` as well if `--local-image` is not provided.
+
+### Pushing Images to ECR for Lambda
+`lambda push-image`
+
+For pushing to ECR you will likely need to authenticate your AWS account with ECR first.
+There 4 ways the URI can be built here and will follow this order.
+1. Command line `--lambda-image-uri` while calling `lambda push-image`
+2. Providing `"lambda_image_uri": "000123456789..."` in your yaml.
+3. Providing `--lambda-image-tag` in the `lambda deploy-image` command. The tag will NOT be taken from `"--tag"` variable.
+4. Built from variables in your yaml.
+
+### Deploying Docker Images to Lambda
+`lambda deploy-image`
+
+Finally after your image is in ECR you can deploy it to Lambda. There 4 ways the URI can be built here and will follow this order.
+1. Command line `--lambda-image-uri` in the `lambda deploy-image` command
+2. Providing `"lambda_image_uri": "000123456789..."` in your yaml.
+3. Providing `--lambda-image-tag` in the `lambda deploy-image` command. The tag will NOT be taken from `"--tag"` variable.
+4. Built from variables in your yaml.
+
+### Shortcutting Docker Images for Lambda
+You condense the building, tagging, and pushing into one step by adding additional variables in your yaml.
+```yaml
+image_build_variables:
+  "--tag": "00012345678.dkr.ecr.us-east.9.amazonaws.com/trainer/training-things/my-lambda:latest"
+  "--platform": linux/amd64
+  "--no-cache": "false"
+  "build_path": "."
+  "--push": "true
+```
 
 ## Development
 Development of "python-lambda" is facilitated exclusively on GitHub.

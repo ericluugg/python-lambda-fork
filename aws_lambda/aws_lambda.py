@@ -34,6 +34,17 @@ ARN_PREFIXES = {
 
 log = logging.getLogger(__name__)
 
+def build_ecr_uri(cfg, tag=None):
+    """Builds the ECR URI for the image to be deployed to."""
+    aws_account_id = cfg.get("aws_account_id")
+    region = cfg.get("region")
+    ecr_repository = cfg.get("ecr_repository")
+    if aws_account_id is None or region is None or ecr_repository is None:
+        raise ValueError("aws_account_id, region and ecr_repository must be set in the config file")
+    base_uri = f"{aws_account_id}.dkr.ecr.{region}.amazonaws.com/{ecr_repository}"
+    if tag is not None:
+        base_uri += f":{tag}"
+    return base_uri
 
 def load_source(module_name, module_path):
     """Loads a python module from the path of the corresponding file."""
@@ -105,8 +116,10 @@ def deploy_image(
     config_file="config.yaml",
     profile_name=None,
     preserve_vpc=False,
+    lambda_image_uri=None,
+    lambda_image_tag=None,
 ):
-    """Deploys a new function to AWS Lambda.
+    """Deploys a new function to AWS Lambda with a docker image.
 
     :param str src:
         The path to your Lambda ready project (folder must contain a valid
@@ -118,8 +131,16 @@ def deploy_image(
     # Load and parse the config file.
     path_to_config_file = os.path.join(src, config_file)
     cfg = read_cfg(path_to_config_file, profile_name)
-    existing_config = get_function_config(cfg)
+    if lambda_image_uri is not None: # Set to provided URI from command line
+        cfg["lambda_image_uri"] = lambda_image_uri
+    elif cfg.get("lambda_image_uri") is None: # Try to build URI
+        if lambda_image_tag is None:
+            local_image_tag = cfg.get("image_build_variables").get("--tag")
+            lambda_image_tag = local_image_tag.split(":")[1]
+        cfg["lambda_image_uri"] = build_ecr_uri(cfg, tag=lambda_image_tag)
 
+    print(f"Deploying docker image with URI: {cfg['lambda_image_uri']}")
+    existing_config = get_function_config(cfg)
     update_function(
         cfg=cfg, 
         path_to_zip_file=None,
@@ -337,7 +358,6 @@ def init(src, minimal=False):
         if not os.path.isdir(dest_path):
             copy(dest_path, src)
 
-
 def build(
     src,
     requirements=None,
@@ -438,6 +458,72 @@ def build(
     path_to_zip_file = archive("./", path_to_dist, output_filename)
     return path_to_zip_file
 
+def build_image(
+    src,
+    config_file="config.yaml",
+    profile_name=None,
+):
+    # Load and parse the config file.
+    path_to_config_file = os.path.join(src, config_file)
+    cfg = read_cfg(path_to_config_file, profile_name)
+    
+    build_variables = cfg.get("image_build_variables", {})
+    build_variables["--provenance"] = "false"
+    build_command = ["docker", "buildx", "build"]
+    for key, value in build_variables.items():
+        if key == "build_path":
+            continue
+        build_command.append(f"{key}={value}")
+    build_command.append(build_variables["build_path"])
+    print(f"Building docker image with command: {build_command}")
+    
+    subprocess.run(build_command, check=True)
+
+def tag_image(
+    src,
+    config_file="config.yaml",
+    profile_name=None,
+    local_image=None,
+    lambda_image_tag=None,
+):
+    # Load and parse the config file.
+    path_to_config_file = os.path.join(src, config_file)
+    cfg = read_cfg(path_to_config_file, profile_name)
+    if local_image is None:
+        local_image = cfg.get("image_build_variables").get("--tag")
+    
+    if lambda_image_tag is None:
+        lambda_image_tag= local_image.split(":")[1]
+    tag_command = ["docker", "tag"]
+    tag_command.append(local_image)
+    tag_command.append(build_ecr_uri(cfg, tag=lambda_image_tag))
+    print(f"Running docker tag command: {tag_command}")
+    subprocess.run(tag_command, check=True)
+
+
+def push_image(
+    src,
+    config_file="config.yaml",
+    profile_name=None,
+    lambda_image_uri=None,
+    lambda_image_tag=None,
+):
+    # Load and parse the config file.
+    path_to_config_file = os.path.join(src, config_file)
+    cfg = read_cfg(path_to_config_file, profile_name)
+
+    if lambda_image_uri is not None: # Set to provided URI from command line
+        cfg["lambda_image_uri"] = lambda_image_uri
+    elif cfg.get("lambda_image_uri") is None: # Try to build URI
+        if lambda_image_tag is None:
+            local_image_tag = cfg.get("image_build_variables").get("--tag")
+            lambda_image_tag = local_image_tag.split(":")[1]
+        cfg["lambda_image_uri"] = build_ecr_uri(cfg, tag=lambda_image_tag)
+    
+    push_command = ["docker", "push", cfg["lambda_image_uri"]]
+    
+    print(f"Running docker push command: {push_command}")
+    subprocess.run(push_command, check=True)
 
 def get_callable_handler_function(src, handler):
     """Translate a string of the form "module.function" into a callable
@@ -726,12 +812,12 @@ def update_function(
             Publish=True,
         )
     elif use_image:
-        docker_image_uri = cfg.get("docker_image_uri")
-        if not docker_image_uri:
-            raise ValueError("Docker image URI must be provided in cfg under 'docker_image_uri'")
+        lambda_image_uri = cfg.get("lambda_image_uri")
+        if not lambda_image_uri:
+            raise ValueError("Docker image URI must be provided")
         client.update_function_code(
             FunctionName=cfg.get("function_name"),
-            ImageUri=docker_image_uri,
+            ImageUri=lambda_image_uri,
             Publish=True,
         )
     else:
@@ -755,6 +841,7 @@ def update_function(
         "MemorySize": cfg.get("memory_size", 512),
     }
     if use_image:
+        # Cannot have these variables when using image deployment
         del kwargs["Runtime"]
         del kwargs["Handler"]
 

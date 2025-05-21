@@ -27,6 +27,15 @@ environment_variables:
     env_1: foo
     env_2: baz
 
+# Image build options
+image_build_variables:
+  "--tag": "my_lambda:test"
+  "--platform": linux/amd64
+  "--no-cache": "false"
+  "build_path": "../"
+  
+aws_account_id: 000123456789
+ecr_repository: trainer/training-things/my-lambda
 # If `tags` is uncommented then tags will be set at creation or update
 # time.  During an update all other tags will be removed except the tags
 # listed here.
