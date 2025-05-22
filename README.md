@@ -225,7 +225,7 @@ Use quotes around the variable names and values for best results.
 If you wish to build and immediately push to ECR you can add `"--push": "true"` and provide the full ECR URI in the `--tag`
 ```yaml
 image_build_variables:
-  "--tag": "my_lambda:latest"
+  "--tag": "my_lambda"
   "--platform": linux/amd64
   "--no-cache": "false"
   "build_path": "."
@@ -240,28 +240,28 @@ For tagging you'll need to add these folllowing variables to your yaml.
 ```yaml
 aws_account_id: 000123456789
 ecr_repository: trainer/training-things/test-repo
+lambda_image_tag: v0.0.1
 ```
-These will be used to build the full ECR URI. The tag will be taken from `"--tag"` variable if `--lambda-image-tag` is not provided in the function call.
-The local image will be taken from `"--tag"` as well if `--local-image` is not provided.
+These will be used to build the full ECR URI. `lambda_image_tag` can be provided via command line with `--lambda-image-tag`
+When done like this it will overwrite the value in the YAML.
 
 ### Pushing Images to ECR for Lambda
 `lambda push-image`
 
 For pushing to ECR you will likely need to authenticate your AWS account with ECR first.
-There 4 ways the URI can be built here and will follow this order.
-1. Command line `--lambda-image-uri` while calling `lambda push-image`
-2. Providing `"lambda_image_uri": "000123456789..."` in your yaml.
-3. Providing `--lambda-image-tag` in the `lambda deploy-image` command. The tag will NOT be taken from `"--tag"` variable.
-4. Built from variables in your yaml.
+There are 3 ways the URI can be built here and will follow this order.
+1. Providing `--lambda-image-uri` while calling `lambda push-image`
+2. Adding `"lambda_image_uri": "000123456789..."` in your yaml.
+3. As long as you have `aws_account_id` and `ecr_repository` in your yaml, you can add `--lambda-image-tag` in the `lambda deploy-image` command.
 
 ### Deploying Docker Images to Lambda
 `lambda deploy-image`
 
-Finally after your image is in ECR you can deploy it to Lambda. There 4 ways the URI can be built here and will follow this order.
-1. Command line `--lambda-image-uri` in the `lambda deploy-image` command
-2. Providing `"lambda_image_uri": "000123456789..."` in your yaml.
-3. Providing `--lambda-image-tag` in the `lambda deploy-image` command. The tag will NOT be taken from `"--tag"` variable.
-4. Built from variables in your yaml.
+Finally after your image is in ECR you can deploy it to Lambda. There 3 ways the URI can be built here and will follow this order.
+1. Providing `--lambda-image-uri` while calling `lambda push-image`
+2. Adding `"lambda_image_uri": "000123456789..."` in your yaml.
+3. As long as you have `aws_account_id` and `ecr_repository` in your yaml, you can add `--lambda-image-tag` in the `lambda deploy-image` command.
+
 
 ### Shortcutting Docker Images for Lambda
 You condense the building, tagging, and pushing into one step by adding additional variables in your yaml.

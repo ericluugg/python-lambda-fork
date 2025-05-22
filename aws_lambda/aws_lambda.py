@@ -131,14 +131,11 @@ def deploy_image(
     # Load and parse the config file.
     path_to_config_file = os.path.join(src, config_file)
     cfg = read_cfg(path_to_config_file, profile_name)
-    if lambda_image_uri is not None: # Set to provided URI from command line
-        cfg["lambda_image_uri"] = lambda_image_uri
-    elif cfg.get("lambda_image_uri") is None: # Try to build URI
-        if lambda_image_tag is None:
-            local_image_tag = cfg.get("image_build_variables").get("--tag")
-            lambda_image_tag = local_image_tag.split(":")[1]
+    lambda_image_uri = lambda_image_uri or cfg.get("lambda_image_uri")
+    if lambda_image_uri is None: # Not from command line or config file, build from config
+        lambda_image_tag = lambda_image_tag or cfg.get("lambda_image_tag")
         cfg["lambda_image_uri"] = build_ecr_uri(cfg, tag=lambda_image_tag)
-
+   
     print(f"Deploying docker image with URI: {cfg['lambda_image_uri']}")
     existing_config = get_function_config(cfg)
     update_function(
@@ -491,12 +488,12 @@ def tag_image(
     cfg = read_cfg(path_to_config_file, profile_name)
     if local_image is None:
         local_image = cfg.get("image_build_variables").get("--tag")
-    
-    if lambda_image_tag is None:
-        lambda_image_tag= local_image.split(":")[1]
+    lambda_image_tag = lambda_image_tag or cfg.get("lambda_image_tag")
+
     tag_command = ["docker", "tag"]
     tag_command.append(local_image)
     tag_command.append(build_ecr_uri(cfg, tag=lambda_image_tag))
+    
     print(f"Running docker tag command: {tag_command}")
     subprocess.run(tag_command, check=True)
 
@@ -512,12 +509,9 @@ def push_image(
     path_to_config_file = os.path.join(src, config_file)
     cfg = read_cfg(path_to_config_file, profile_name)
 
-    if lambda_image_uri is not None: # Set to provided URI from command line
-        cfg["lambda_image_uri"] = lambda_image_uri
-    elif cfg.get("lambda_image_uri") is None: # Try to build URI
-        if lambda_image_tag is None:
-            local_image_tag = cfg.get("image_build_variables").get("--tag")
-            lambda_image_tag = local_image_tag.split(":")[1]
+    lambda_image_uri = lambda_image_uri or cfg.get("lambda_image_uri")
+    if lambda_image_uri is None: # Not from command line or config file, build from config
+        lambda_image_tag = lambda_image_tag or cfg.get("lambda_image_tag")
         cfg["lambda_image_uri"] = build_ecr_uri(cfg, tag=lambda_image_tag)
     
     push_command = ["docker", "push", cfg["lambda_image_uri"]]
